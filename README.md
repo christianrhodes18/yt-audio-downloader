@@ -4,6 +4,8 @@ A tiny, local **Tkinter** app that lets you paste YouTube links and download **a
 
 This is designed for simple offline listening workflows (e.g., importing into lightweight players like **Bound** on iOS).
 
+<img width="748" height="662" alt="image" src="https://github.com/user-attachments/assets/d1835014-bbb7-4082-9f5e-67cda506d7d8" />
+
 ## Features
 
 - Paste a blob of text → it finds `youtube.com` / `youtu.be` URLs automatically
