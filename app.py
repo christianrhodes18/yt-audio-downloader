@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -11,7 +13,8 @@ from tkinter import filedialog, messagebox, scrolledtext, ttk
 from download_audio import bible_books_ordered, download_one, parse_urls
 
 DEFAULT_DIR = Path(__file__).resolve().parent / "downloads"
-DEFAULT_SUBFOLDER = "Bible"
+DEFAULT_SUBFOLDER = "Downloads"
+CATEGORIES = ["Generic", "Bible", "Motivational", "Tutorials"]
 
 
 class App(tk.Tk):
@@ -23,6 +26,8 @@ class App(tk.Tk):
 
         self._build()
         self._set_folder_label()
+        self._sync_category_ui()
+        self._apply_system_theme()
 
     def _build(self) -> None:
         pad = {"padx": 10, "pady": 6}
@@ -40,40 +45,49 @@ class App(tk.Tk):
         frm_opts = ttk.Frame(self)
         frm_opts.pack(fill=tk.X, padx=10, pady=(0, 6))
 
+        ttk.Label(frm_opts, text="Category:").pack(side=tk.LEFT)
+        self.var_category = tk.StringVar(value="Generic")
+        self.cmb_category = ttk.Combobox(
+            frm_opts,
+            textvariable=self.var_category,
+            values=CATEGORIES,
+            state="readonly",
+            width=12,
+        )
+        self.cmb_category.pack(side=tk.LEFT, padx=(6, 12))
+        self.cmb_category.bind("<<ComboboxSelected>>", lambda _e: self._sync_category_ui())
+
         ttk.Label(frm_opts, text="Subfolder:").pack(side=tk.LEFT)
         self.var_subfolder = tk.StringVar(value=DEFAULT_SUBFOLDER)
-        ttk.Entry(frm_opts, textvariable=self.var_subfolder, width=18).pack(
+        self._subfolder_last_auto = DEFAULT_SUBFOLDER
+        self._subfolder_user_edited = False
+        ent_subfolder = ttk.Entry(frm_opts, textvariable=self.var_subfolder, width=18)
+        ent_subfolder.pack(
             side=tk.LEFT, padx=(6, 12)
         )
+        self.var_subfolder.trace_add("write", lambda *_: self._on_subfolder_change())
 
-        ttk.Label(frm_opts, text="Start #").pack(side=tk.LEFT)
+        ttk.Label(frm_opts, text="Number prefix starts at:").pack(side=tk.LEFT)
         self.var_start_index = tk.StringVar(value="1")
         ttk.Entry(frm_opts, textvariable=self.var_start_index, width=6).pack(
             side=tk.LEFT, padx=(6, 12)
         )
 
-        self.var_rename_books = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            frm_opts,
-            text="Rename to Bible book when detected",
-            variable=self.var_rename_books,
-        ).pack(side=tk.LEFT)
-
-        frm_bible = ttk.Frame(self)
-        frm_bible.pack(fill=tk.X, padx=10, pady=(0, 6))
+        self.frm_bible = ttk.Frame(self)
+        self.frm_bible.pack(fill=tk.X, padx=10, pady=(0, 6))
 
         self.var_auto_bible_index = tk.BooleanVar(value=True)
         ttk.Checkbutton(
-            frm_bible,
+            self.frm_bible,
             text="Auto-assign Bible book numbers in order",
             variable=self.var_auto_bible_index,
         ).pack(side=tk.LEFT)
 
-        ttk.Label(frm_bible, text="Starting book:").pack(side=tk.LEFT, padx=(12, 0))
+        ttk.Label(self.frm_bible, text="Starting book:").pack(side=tk.LEFT, padx=(12, 0))
         self.books = bible_books_ordered()
         self.var_start_book = tk.StringVar(value=self.books[0])
         ttk.Combobox(
-            frm_bible,
+            self.frm_bible,
             textvariable=self.var_start_book,
             values=self.books,
             state="readonly",
@@ -126,6 +140,73 @@ class App(tk.Tk):
 
         self.after(0, append)
 
+    def _is_macos_dark_mode(self) -> bool:
+        if sys.platform != "darwin":
+            return False
+        try:
+            proc = subprocess.run(
+                ["defaults", "read", "-g", "AppleInterfaceStyle"],
+                capture_output=True,
+                text=True,
+            )
+            return proc.returncode == 0 and "Dark" in (proc.stdout or "")
+        except Exception:
+            return False
+
+    def _apply_system_theme(self) -> None:
+        # Best-effort dark palette on macOS when system is in Dark Mode.
+        # Tk doesn't automatically follow the system appearance.
+        if not self._is_macos_dark_mode():
+            return
+
+        bg = "#1e1e1e"
+        fg = "#e6e6e6"
+        field_bg = "#2a2a2a"
+
+        try:
+            self.configure(background=bg)
+            style = ttk.Style(self)
+            style.configure("TFrame", background=bg)
+            style.configure("TLabel", background=bg, foreground=fg)
+            style.configure("TCheckbutton", background=bg, foreground=fg)
+            style.configure("TButton", background=bg, foreground=fg)
+            style.configure("TEntry", fieldbackground=field_bg, foreground=fg)
+            style.configure("TCombobox", fieldbackground=field_bg, foreground=fg)
+        except Exception:
+            pass
+
+        for w in (self.txt_urls, self.txt_names, self.txt_log):
+            try:
+                w.configure(
+                    background=field_bg,
+                    foreground=fg,
+                    insertbackground=fg,
+                )
+            except Exception:
+                pass
+
+    def _on_subfolder_change(self) -> None:
+        current = self.var_subfolder.get().strip()
+        # Mark as user-edited only when they diverge from the last auto-set value.
+        if current and current != self._subfolder_last_auto:
+            self._subfolder_user_edited = True
+
+    def _set_subfolder_auto(self, value: str) -> None:
+        self._subfolder_last_auto = value
+        self._subfolder_user_edited = False
+        self.var_subfolder.set(value)
+
+    def _sync_category_ui(self) -> None:
+        is_bible = self.var_category.get() == "Bible"
+        if is_bible:
+            self.frm_bible.pack(fill=tk.X, padx=10, pady=(0, 6))
+            if not self._subfolder_user_edited:
+                self._set_subfolder_auto("Bible")
+        else:
+            self.frm_bible.pack_forget()
+            if not self._subfolder_user_edited:
+                self._set_subfolder_auto(self.var_category.get() or DEFAULT_SUBFOLDER)
+
     def _on_download(self) -> None:
         raw = self.txt_urls.get("1.0", tk.END)
         urls = parse_urls(raw)
@@ -141,7 +222,10 @@ class App(tk.Tk):
         try:
             start_index = int(self.var_start_index.get().strip() or "1")
         except ValueError:
-            messagebox.showerror("Start #", "Start # must be a whole number (e.g. 1).")
+            messagebox.showerror(
+                "Number prefix",
+                "Number prefix starts at must be a whole number (e.g. 1).",
+            )
             return
 
         self.btn_go.configure(state=tk.DISABLED)
@@ -155,7 +239,8 @@ class App(tk.Tk):
             try:
                 self._log(f"Found {len(urls)} URL(s). Saving to:\n{out}\n\n")
                 bad = 0
-                if self.var_auto_bible_index.get():
+                is_bible = self.var_category.get() == "Bible"
+                if is_bible and self.var_auto_bible_index.get():
                     try:
                         start_book_idx = self.books.index(self.var_start_book.get())
                     except ValueError:
@@ -183,7 +268,8 @@ class App(tk.Tk):
                             bad += 1
                 else:
                     for i, url in enumerate(urls, start=start_index):
-                        title_override = names[i - start_index] if (i - start_index) < len(names) else None
+                        name_idx = i - start_index
+                        title_override = names[name_idx] if name_idx < len(names) else None
                         code = download_one(
                             url,
                             out,
