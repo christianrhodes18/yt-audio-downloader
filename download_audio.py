@@ -200,6 +200,8 @@ def download_one(
     index: int | None = None,
     title_override: str | None = None,
     audio_format: str = "m4a",
+    embed_metadata: bool = True,
+    embed_thumbnail: bool = True,
     log: LogFn | None = None,
 ) -> int:
     """Run yt-dlp for a single URL. Returns subprocess return code."""
@@ -226,6 +228,10 @@ def download_one(
         "--no-colors",
         url,
     ]
+    if embed_metadata:
+        cmd.insert(cmd.index(url), "--add-metadata")
+    if embed_thumbnail:
+        cmd.insert(cmd.index(url), "--embed-thumbnail")
 
     env = _yt_dlp_env()
 
