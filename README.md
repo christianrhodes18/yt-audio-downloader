@@ -13,7 +13,7 @@ This is designed for simple offline listening workflows (e.g., importing into li
 - Creates filenames like `01 - <name>.m4a`, `02 - <name>.m4a`, …
 - Optional **custom names** (one per URL, line-by-line)
 - Category selector:
-  - **Generic / Motivational / Tutorials**: simple numbering + optional custom names
+  - **Generic / Motivational / Tutorials / Playlists**: simple numbering + optional custom names
   - **Bible**: choose a starting book and auto-assign canonical book order + numbering
 - Best-effort macOS **Dark Mode** palette (matches system appearance when possible)
 

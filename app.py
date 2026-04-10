@@ -14,7 +14,7 @@ from download_audio import bible_books_ordered, download_one, parse_urls
 
 DEFAULT_DIR = Path(__file__).resolve().parent / "downloads"
 DEFAULT_SUBFOLDER = "Downloads"
-CATEGORIES = ["Generic", "Bible", "Motivational", "Tutorials"]
+CATEGORIES = ["Generic", "Bible", "Motivational", "Tutorials", "Playlists"]
 
 
 class App(tk.Tk):
